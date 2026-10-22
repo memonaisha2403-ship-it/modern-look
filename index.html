@@ -1,0 +1,164 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Autograph Smart Catalog</title>
+<style>
+:root{--bg:#faf8f5;--fg:#1a1a1a;--card:#fff;--mut:#6b6b6b;--bd:#e4e0d8;--ac:#1a1a1a;--acf:#fff;--ok:#1d7a3e;--bad:#b3261e;--warn:#9a6700;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121212;--fg:#f2efe9;--card:#1c1c1c;--mut:#a09a90;--bd:#333;--ac:#f2efe9;--acf:#121212;--ok:#5fd18a;--bad:#ff8a80;--warn:#e3b341;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121212;--fg:#f2efe9;--card:#1c1c1c;--mut:#a09a90;--bd:#333;--ac:#f2efe9;--acf:#121212;--ok:#5fd18a;--bad:#ff8a80;--warn:#e3b341;color-scheme:dark}
+html,body{height:auto;margin:0}*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+h1,h2,h3{font-family:Georgia,"Times New Roman",serif;margin:.2em 0}
+.w{max-width:1100px;margin:0 auto;padding:14px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+button,.b{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--fg);padding:8px 13px;border-radius:10px;cursor:pointer;white-space:nowrap}
+button.p,.on{background:var(--ac);color:var(--acf);border-color:var(--ac)}
+button.d{color:var(--bad)}button:disabled{opacity:.4;cursor:not-allowed}
+input,select,textarea{font:inherit;width:100%;padding:9px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--fg)}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin:10px 0}
+.g{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.g2{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:8px;border-bottom:1px solid var(--bd);text-align:left;vertical-align:top}
+.tag{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;border:1px solid var(--bd)}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}.mut{color:var(--mut)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.car{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:12px;scrollbar-width:none}
+.car img{flex:0 0 100%;width:100%;aspect-ratio:4/5;object-fit:cover;scroll-snap-align:center;background:var(--bd)}
+.pc{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:10px}
+.sz{min-width:44px;text-align:center;padding:7px 10px}.sz.so{text-decoration:line-through;opacity:.45}
+.sz.sel{background:var(--ac);color:var(--acf)}
+.mod{position:fixed;inset:0;background:#0008;display:flex;align-items:flex-end;justify-content:center;z-index:9}
+.mod>div{background:var(--bg);width:100%;max-width:520px;max-height:90%;overflow:auto;border-radius:18px 18px 0 0;padding:16px}
+.bar{position:sticky;bottom:10px;display:flex;justify-content:center;margin-top:14px}
+.thumb{width:54px;height:54px;object-fit:cover;border-radius:8px;position:relative}
+</style></head><body><div class="w" id="app"></div>
+<script>
+const $=s=>document.querySelector(s),R=$('#app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'₹'+Number(n).toLocaleString('en-IN'),fmt=t=>t?new Date(t).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}):'–';
+const sha=async s=>{try{return[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('ag|'+s)))].map(b=>b.toString(16).padStart(2,'0')).join('')}catch(e){return'x'+btoa(s)}};
+const svg=(t,c)=>'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="750"><rect width="600" height="750" fill="${c}"/><text x="300" y="375" font-size="38" text-anchor="middle" fill="#fff" font-family="Georgia">${t}</text></svg>`);
+const K='ag_catalog_v1';let mem=null;
+const load=()=>{try{return JSON.parse(localStorage.getItem(K))}catch(e){return mem}};
+const save=()=>{mem=db;try{localStorage.setItem(K,JSON.stringify(db))}catch(e){}};
+const mk=(name,sku,cat,sub,color,price,disc,hex,sizes)=>({id:'p'+sku,name,sku,cat,sub,color,price,disc,desc:'Premium quality, comfortable fit.',status:'Available',soldMode:'show',images:[svg(name,hex),svg(sku+' · detail',hex+'cc')],sizes:sizes.map(([s,stock])=>({s:String(s),stock,vis:'show'}))});
+const seed=()=>({pw:null,allowPerm:true,fails:0,lock:0,
+products:[mk('Runner Pro Shoes','SH-101','Shoes','Sports','Black',3499,2999,'#2b2b2b',[[40,5],[41,3],[42,0],[43,0],[44,2]]),mk('Classic Cotton Tee','TS-201','T-shirts','Round Neck','White',799,0,'#6a7b8c',[['S',8],['M',6],['L',0],['XL',4]]),mk('Zip Hoodie','HD-301','Hoodies','Zipper','Grey',1999,1699,'#7a5c4a',[['M',3],['L',5],['XL',2]]),mk('Slim Fit Jeans','JN-401','Jeans','Slim','Blue',1799,0,'#2f4a7a',[[30,4],[32,6],[34,2]])],
+links:[],orders:[],customers:[{name:'Sanjay',wa:'9876543210'},{name:'Ritu',wa:'9123456780'}]});
+let db=load()||seed();
+const st=l=>l.revoked?'Revoked':(l.exp&&Date.now()>l.exp?'Expired':'Active');
+const cats=()=>[...new Set(db.products.map(p=>p.cat))];
+const waUrl=(n,m)=>{n=String(n||'').replace(/\D/g,'');if(n.length==10)n='91'+n;return`https://wa.me/${n}?text=${encodeURIComponent(m)}`};
+const base=()=>location.href.split('#')[0];
+const tok=()=>location.hash.slice(1);
+addEventListener('hashchange',()=>location.reload());
+(async()=>{if(!db.pw){db.pw=await sha('admin123');save()}tok()?cust():admin()})();
+
+/* ============ ADMIN ============ */
+let tab='products',ed=null,msg='',newLink=null;
+const sess=()=>+sessionStorage.getItem('ag_s')>Date.now();
+const touch=()=>sessionStorage.setItem('ag_s',Date.now()+30*60000);
+function admin(){if(!sess())return login();touch();
+const T=[['products','Products'],['create','Create Link'],['links','Links'],['interest','Customer Interest'],['settings','Settings'],['plan','Backup & CRM Plan']];
+R.innerHTML=`<div class="top"><h2>Autograph · Admin</h2><div class="row"><span class="mut">Auto-logout after 30 min idle</span><button onclick="sessionStorage.removeItem('ag_s');admin()">Log out</button></div></div>
+<div class="tabs">${T.map(([k,n])=>`<button class="${tab==k?'on':''}" onclick="tab='${k}';ed=null;admin()">${n}${k=='interest'?' ('+db.orders.filter(o=>o.status=='Interest').length+')':''}</button>`).join('')}</div>${msg?`<div class="card ok">${msg}</div>`:''}<div id="v"></div>`;msg='';
+({products:vProducts,create:vCreate,links:vLinks,interest:vInterest,settings:vSettings,plan:vPlan})[tab]()}
+function login(){R.innerHTML=`<div class="card" style="max-width:360px;margin:12vh auto"><h2>Admin Login</h2><p class="mut">Authorized access only. Demo password: <b>admin123</b> (change it in Settings).</p><label>Password</label><input id="pw" type="password" onkeydown="event.key=='Enter'&&doLogin()"><p id="le" class="bad"></p><button class="p" onclick="doLogin()">Sign in</button></div>`}
+async function doLogin(){if(Date.now()<db.lock)return $('#le').textContent='Too many attempts. Try again in a minute.';
+if(await sha($('#pw').value)==db.pw){db.fails=0;save();touch();admin()}else{db.fails++;if(db.fails>=5){db.lock=Date.now()+60000;db.fails=0}save();$('#le').textContent='Incorrect password.'}}
+
+function vProducts(){const v=$('#v');if(ed)return pForm(v);
+v.innerHTML=`<div class="row"><button class="p" onclick="ed={id:'p'+Date.now(),name:'',sku:'',cat:'',sub:'',color:'',price:0,disc:0,desc:'',status:'Available',soldMode:'show',images:[],sizes:[]};admin()">+ Add product</button></div>
+<div class="card tw"><table><tr><th></th><th>Product</th><th>Price</th><th>Status</th><th>Sizes (stock · visibility)</th><th></th></tr>${db.products.map((p,i)=>`<tr><td>${p.images[0]?`<img class="thumb" src="${p.images[0]}">`:''}</td><td><b>${esc(p.name)}</b><br><span class="mut">${esc(p.sku)} · ${esc(p.cat)}/${esc(p.sub)} · ${esc(p.color)}</span></td><td>${money(p.price)}${p.disc?`<br><span class="ok">${money(p.disc)}</span>`:''}</td><td><span class="tag ${p.status=='Available'?'ok':p.status=='Hidden'?'mut':'bad'}">${p.status}</span></td><td>${p.sizes.map(z=>`<span class="tag ${z.vis=='hide'?'mut':z.stock>0?'ok':'bad'}">${esc(z.s)}: ${z.stock}${z.vis=='hide'?' hidden':''}</span>`).join(' ')}</td><td><div class="row"><button onclick="ed=JSON.parse(JSON.stringify(db.products[${i}]));admin()">Edit</button><button onclick="togH(${i})">${p.status=='Hidden'?'Unhide':'Hide'}</button><button class="d" onclick="delP(${i})">Delete</button></div></td></tr>`).join('')||'<tr><td>No products yet.</td></tr>'}</table></div>`}
+function togH(i){const p=db.products[i];p.status=p.status=='Hidden'?'Available':'Hidden';save();admin()}
+function delP(i){if(confirm('Delete this product permanently?')){db.products.splice(i,1);save();admin()}}
+function pForm(v){const f=(k,l,t='text')=>`<div><label>${l}</label><input type="${t}" value="${esc(ed[k])}" oninput="ed.${k}=${t=='number'?'+this.value':'this.value'}"></div>`;
+v.innerHTML=`<div class="card"><h3>${db.products.find(p=>p.id==ed.id)?'Edit':'New'} product</h3><div class="g2">${f('name','Product name')}${f('sku','Unique code / SKU')}<div><label>Category</label><input list="cl" value="${esc(ed.cat)}" oninput="ed.cat=this.value"><datalist id="cl">${cats().map(c=>`<option>${esc(c)}`).join('')}</datalist></div>${f('sub','Subcategory')}${f('color','Color')}${f('price','Price (₹)','number')}${f('disc','Discount price (optional, 0 = none)','number')}
+<div><label>Status</label><select onchange="ed.status=this.value">${['Available','Sold Out','Hidden'].map(s=>`<option ${ed.status==s?'selected':''}>${s}</option>`).join('')}</select></div></div>
+<label>Description</label><textarea rows="2" oninput="ed.desc=this.value">${esc(ed.desc)}</textarea>
+<label>Images (upload several, they are compressed for fast loading)</label><input type="file" accept="image/*" multiple onchange="addImgs(this.files)"><div class="row" style="margin-top:8px">${ed.images.map((s,i)=>`<div><img class="thumb" src="${s}"><br><button class="d" style="padding:2px 6px" onclick="ed.images.splice(${i},1);admin()">✕</button></div>`).join('')}</div>
+<h3 style="margin-top:16px">Sizes, stock and visibility</h3><p class="mut">Each size is independent. Choose Show or Hide per size. Sizes with 0 stock follow the setting below.</p>
+${ed.sizes.map((z,i)=>`<div class="row" style="margin:6px 0"><input style="width:80px" value="${esc(z.s)}" oninput="ed.sizes[${i}].s=this.value"><input type="number" min="0" style="width:90px" value="${z.stock}" oninput="ed.sizes[${i}].stock=Math.max(0,+this.value)"><select style="width:140px" onchange="ed.sizes[${i}].vis=this.value"><option value="show" ${z.vis=='show'?'selected':''}>Visible</option><option value="hide" ${z.vis=='hide'?'selected':''}>Hidden</option></select><button class="d" onclick="ed.sizes.splice(${i},1);admin()">✕</button></div>`).join('')}
+<div class="row"><input id="ns" placeholder="New size e.g. 45 or XXL" style="width:200px"><button onclick="addSz()">+ Add size</button><button onclick="ed.sizes=['40','41','42','43','44'].map(s=>({s,stock:0,vis:'show'}));admin()">Shoe sizes 40–44</button><button onclick="ed.sizes=['S','M','L','XL','XXL'].map(s=>({s,stock:0,vis:'show'}));admin()">S–XXL</button></div>
+<label>When a size is sold out (stock 0)</label><select onchange="ed.soldMode=this.value"><option value="show" ${ed.soldMode=='show'?'selected':''}>Show it as Sold Out</option><option value="hide" ${ed.soldMode=='hide'?'selected':''}>Hide it completely</option></select>
+<div class="row" style="margin-top:14px"><button class="p" onclick="saveP()">Save product</button><button onclick="ed=null;admin()">Cancel</button></div></div>`}
+function addSz(){const s=$('#ns').value.trim();if(s&&!ed.sizes.some(z=>z.s==s)){ed.sizes.push({s,stock:0,vis:'show'});admin()}}
+function addImgs(fs){[...fs].forEach(f=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,800/im.width),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);ed.images.push(c.toDataURL('image/jpeg',.75));admin()};im.src=r.result};r.readAsDataURL(f)})}
+function saveP(){if(!ed.name||!ed.sku||!ed.cat)return alert('Name, SKU and category are required.');
+if(db.products.some(p=>p.sku==ed.sku&&p.id!=ed.id))return alert('SKU must be unique.');
+const i=db.products.findIndex(p=>p.id==ed.id);i<0?db.products.push(ed):db.products[i]=ed;save();ed=null;msg='Product saved.';admin()}
+
+/* ---- create link ---- */
+function vCreate(){const v=$('#v');
+v.innerHTML=`<div class="card"><h3>New customer catalog link</h3><div class="g2"><div><label>Customer name (pick from CRM or type new)</label><input id="cn" list="cc" oninput="fillWa()"><datalist id="cc">${db.customers.map(c=>`<option>${esc(c.name)}`).join('')}</datalist></div><div><label>WhatsApp number</label><input id="cw" inputmode="tel" placeholder="10-digit or with country code"></div></div>
+<label>Categories (none ticked = all)</label><div class="row">${cats().map(c=>`<label class="b" style="margin:0"><input type="checkbox" class="cat" value="${esc(c)}" style="width:auto"> ${esc(c)}</label>`).join('')}</div>
+<label>Specific products (none ticked = everything in the categories)</label><div class="row">${db.products.map(p=>`<label class="b" style="margin:0"><input type="checkbox" class="pid" value="${p.id}" style="width:auto"> ${esc(p.name)}</label>`).join('')}</div>
+<div class="g2"><div><label>Allowed sizes (comma separated, blank = all sizes)</label><input id="cs" placeholder="e.g. 42  or  40,41"></div><div><label>Expiry</label><select id="ce" onchange="$('#cx').style.display=this.value=='c'?'block':'none'"><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="c">Custom duration</option>${db.allowPerm?'<option value="0">Permanent link</option>':''}</select><input id="cx" type="number" min="1" placeholder="Custom minutes" style="display:none;margin-top:6px"></div></div>
+<div class="row" style="margin-top:12px"><button class="p" onclick="mkLink()">Generate secure link</button></div></div>${newLink?linkCard(db.links.find(l=>l.t==newLink)):''}`}
+function fillWa(){const c=db.customers.find(c=>c.name.toLowerCase()==$('#cn').value.trim().toLowerCase());if(c)$('#cw').value=c.wa}
+function mkLink(){const name=$('#cn').value.trim(),wa=$('#cw').value.trim();if(!name)return alert('Enter customer name.');
+let m=$('#ce').value;m=m=='c'?+$('#cx').value:+m;if(isNaN(m)||m<0||($('#ce').value=='c'&&m<1))return alert('Enter valid minutes.');
+const a=new Uint8Array(18);crypto.getRandomValues(a);const t=[...a].map(b=>b.toString(36).padStart(2,'0')).join('');
+db.links.unshift({t,name,wa,cats:[...document.querySelectorAll('.cat:checked')].map(x=>x.value),pids:[...document.querySelectorAll('.pid:checked')].map(x=>x.value),sizes:$('#cs').value.split(',').map(s=>s.trim()).filter(Boolean),mins:m,created:Date.now(),exp:m?Date.now()+m*60000:0,revoked:0,views:0,last:0,adds:0});
+if(!db.customers.some(c=>c.name.toLowerCase()==name.toLowerCase()))db.customers.push({name,wa});save();newLink=t;admin()}
+const lurl=l=>base()+'#'+l.t;
+function linkCard(l){return`<div class="card"><b>Link ready for ${esc(l.name)}</b><br><input readonly value="${lurl(l)}" onclick="this.select()"><div class="row" style="margin-top:8px"><button onclick="cp('${l.t}')">Copy link</button><a class="b p" style="text-decoration:none" target="_blank" href="${waUrl(l.wa,wmsg(l))}">Send on WhatsApp</a><a class="b" style="text-decoration:none" target="_blank" href="${lurl(l)}">Preview</a></div><p class="mut">Expires: ${l.exp?fmt(l.exp):'never (permanent)'}</p></div>`}
+const wmsg=l=>`Hello ${l.name}, here is your Autograph catalog: ${lurl(l)}${l.exp?`\n(Link is valid for ${l.mins} minutes)`:''}`;
+function cp(t){const l=db.links.find(x=>x.t==t);navigator.clipboard?.writeText(lurl(l)).then(()=>alert('Link copied'),()=>prompt('Copy link:',lurl(l)))||prompt('Copy link:',lurl(l))}
+
+/* ---- links ---- */
+function vLinks(){const L=db.links,c=s=>L.filter(l=>st(l)==s).length;
+$('#v').innerHTML=`<p><span class="tag ok">Active ${c('Active')}</span> <span class="tag warn">Expired ${c('Expired')}</span> <span class="tag bad">Revoked ${c('Revoked')}</span></p><div class="card tw"><table><tr><th>Customer</th><th>Status</th><th>Created / Expires</th><th>Content</th><th>Views</th><th>Last opened</th><th>Selections</th><th></th></tr>${L.map(l=>{const o=db.orders.filter(o=>o.t==l.t);return`<tr><td><b>${esc(l.name)}</b><br>${esc(l.wa)}</td><td><span class="tag ${st(l)=='Active'?'ok':st(l)=='Expired'?'warn':'bad'}">${st(l)}</span></td><td>${fmt(l.created)}<br>${l.exp?fmt(l.exp):'Permanent'}</td><td>Cats: ${l.cats.join(', ')||'All'}<br>Products: ${l.pids.length?l.pids.map(i=>esc(db.products.find(p=>p.id==i)?.name||'?')).join(', '):'All'}<br>Sizes: ${l.sizes.join(', ')||'All'}</td><td>${l.views}</td><td>${fmt(l.last)}</td><td>${l.adds} added to cart<br>${o.length} submitted</td><td><div class="row"><button onclick="cp('${l.t}')">Copy</button><a class="b" target="_blank" href="${waUrl(l.wa,wmsg(l))}">WhatsApp</a>${st(l)=='Active'?`<button class="d" onclick="rev('${l.t}')">Revoke</button>`:''}<button class="d" onclick="delL('${l.t}')">Delete</button></div></td></tr>`}).join('')||'<tr><td>No links yet.</td></tr>'}</table></div>`}
+function rev(t){db.links.find(l=>l.t==t).revoked=Date.now();save();admin()}
+function delL(t){if(confirm('Delete this link record?')){db.links=db.links.filter(l=>l.t!=t);save();admin()}}
+
+/* ---- interest ---- */
+function vInterest(){$('#v').innerHTML=`<p class="mut">A submission is only customer interest. Stock is reduced only after you click Confirm order.</p><div class="card tw"><table><tr><th>Submitted</th><th>Customer</th><th>Items</th><th>Type</th><th></th></tr>${db.orders.map((o,i)=>`<tr><td>${fmt(o.time)}</td><td><b>${esc(o.name)}</b><br>${esc(o.wa)}</td><td>${o.items.map(x=>`${esc(o.name)} selected Size ${esc(x.s)} ${esc(x.n)} × ${x.q}`).join('<br>')}</td><td><span class="tag ${o.status=='Confirmed'?'ok':o.status=='Cancelled'?'bad':'warn'}">${o.status=='Interest'?'Interest (not an order)':o.status}</span></td><td><div class="row">${o.status=='Interest'?`<button class="p" onclick="conf(${i})">Confirm order</button><button class="d" onclick="db.orders[${i}].status='Cancelled';save();admin()">Cancel</button>`:''}<a class="b" target="_blank" href="${waUrl(o.wa,'Hello '+o.name+', thanks for your interest at Autograph!')}">Follow up</a></div></td></tr>`).join('')||'<tr><td>No customer selections yet.</td></tr>'}</table></div>`}
+function conf(i){const o=db.orders[i];o.items.forEach(x=>{const z=db.products.find(p=>p.id==x.pid)?.sizes.find(z=>z.s==x.s);if(z)z.stock=Math.max(0,z.stock-x.q)});o.status='Confirmed';save();msg='Order confirmed and size-wise stock reduced.';admin()}
+
+/* ---- settings ---- */
+function vSettings(){$('#v').innerHTML=`<div class="card"><h3>Security</h3><label>New admin password (min 8 characters)</label><input id="np" type="password"><div class="row" style="margin-top:8px"><button class="p" onclick="chPw()">Change password</button></div><label class="b" style="margin-top:12px"><input type="checkbox" style="width:auto" ${db.allowPerm?'checked':''} onchange="db.allowPerm=this.checked;save()"> Allow permanent links</label></div>
+<div class="card"><h3>Backup</h3><p class="mut">Download a full backup of catalog data before any change. Restore it any time.</p><div class="row"><button class="p" onclick="bk()">Download backup (JSON)</button><label class="b" style="margin:0">Restore<input type="file" accept=".json" style="display:none" onchange="rs(this.files[0])"></label><button class="d" onclick="if(confirm('Reset to demo data? This erases catalog data in this browser.')){db=seed();db.pw=null;save();location.reload()}">Reset demo</button></div></div>`}
+async function chPw(){const p=$('#np').value;if(p.length<8)return alert('Use at least 8 characters.');db.pw=await sha(p);save();msg='Password changed.';admin()}
+function bk(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db)],{type:'application/json'}));a.download='autograph-catalog-backup-'+Date.now()+'.json';a.click()}
+function rs(f){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!d.products)throw 0;db=d;save();msg='Backup restored.';admin()}catch(e){alert('Invalid backup file.')}};r.readText?0:r.readAsText(f)}
+
+/* ---- plan ---- */
+function vPlan(){$('#v').innerHTML=`<div class="card"><h3>Demo versus production</h3><p>This file runs fully in your browser, so links and expiry are checked on this device only. In production, expiry, tokens, login, and customer submissions must be enforced on a server, never only in the page. Build the production version as a separate Vercel project and database schema, as below.</p></div>
+${[['1. Backup first (before any change)',['Export a full CRM database dump (pg_dump or provider snapshot) and store it off-platform.','Download the CRM source from Git, tag the current production release, and export Vercel environment variables.','Document tables, relations, billing and inventory flows, and every API the CRM exposes.','Verify the backup by restoring it into a throwaway database.']],
+['2. Isolation design',['Catalog lives in its own project/module and its own schema, prefixed catalog_ (catalog_products, catalog_sizes, catalog_links, catalog_selections, catalog_events).','CRM tables are touched read-only through a limited database role. No ALTER, DROP or DELETE on CRM tables.','Customer and inventory sync through a read-only view or a CRM API endpoint. Catalog stock is a mirror; billing remains the source of truth.','Customer selections never write to CRM billing. Confirming an order is a separate approved step.']],
+['3. Security requirements',['Admin: server sessions with httpOnly, secure cookies, hashed passwords, rate limiting, optional 2FA.','Links: 128-bit random tokens stored hashed; expiry and revocation checked on every request by the server.','Public API returns only the products, sizes and fields configured for that token. No CRM data.','Forwarded links: optional WhatsApp OTP binding, or a first-open device lock, plus short expiry.']],
+['4. Staging, testing, rollback',['Clone the CRM database to staging and deploy the catalog to a Vercel preview.','Regression-test billing, inventory, customers and existing workflows. Test expiry, revoke and size visibility.','Production deploy only after sign-off. Rollback: Vercel instant rollback plus dropping the catalog_ schema; the CRM is unchanged.']]].map(([h,l])=>`<div class="card"><h3>${h}</h3><ul>${l.map(x=>`<li>${x}</li>`).join('')}</ul></div>`).join('')}`}
+
+/* ============ CUSTOMER ============ */
+let L,cart=[],sel={},who={name:'',wa:''},fcat='All',timer;
+function cust(){L=db.links.find(l=>l.t==tok());
+if(!L||st(L)!='Active')return gone();
+L.views++;L.last=Date.now();save();who={name:L.name||'',wa:L.wa||''};drawC();
+timer=setInterval(()=>{if(st(L)!='Active'){clearInterval(timer);gone()}else{const e=$('#cd');if(e&&L.exp){const s=Math.max(0,Math.round((L.exp-Date.now())/1000));e.textContent='Link expires in '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}}},1000)}
+function gone(){R.innerHTML=`<div class="card" style="max-width:420px;margin:20vh auto;text-align:center"><h2>This catalog link has expired.</h2><p class="mut">Please ask the store for a new link.</p></div>`}
+function vis(p){if(p.status=='Hidden')return null;if(L.cats.length&&!L.cats.includes(p.cat))return null;if(L.pids.length&&!L.pids.includes(p.id))return null;
+const z=p.sizes.filter(z=>z.vis!='hide'&&(!L.sizes.length||L.sizes.includes(z.s))&&!(z.stock<=0&&p.soldMode=='hide'));return z.length?z:null}
+function drawC(){const ps=db.products.map(p=>[p,vis(p)]).filter(x=>x[1]),cs=['All',...new Set(ps.map(x=>x[0].cat))],n=cart.reduce((a,c)=>a+c.q,0);
+R.innerHTML=`<div class="top"><h2>Autograph</h2><span class="mut" id="cd">${L.exp?'':'Permanent link'}</span></div><p class="mut">Hello${who.name?', '+esc(who.name):''}. Browse, pick your size, and add to your selection.</p>
+<div class="tabs">${cs.map(c=>`<button class="${fcat==c?'on':''}" onclick="fcat='${esc(c)}';drawC()">${esc(c)}</button>`).join('')}</div>
+<div class="g" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">${ps.filter(x=>fcat=='All'||x[0].cat==fcat).map(([p,z])=>{const so=p.status=='Sold Out';return`<div class="pc"><div style="position:relative"><div class="car" onscroll="cnt(this)">${p.images.map(s=>`<img loading="lazy" src="${s}" alt="${esc(p.name)}">`).join('')}</div>${p.images.length>1?`<span class="tag" style="position:absolute;right:8px;bottom:8px;background:var(--card)">1/${p.images.length}</span>`:''}</div>
+<h3>${esc(p.name)}</h3><div class="mut">${esc(p.sub)} · ${esc(p.color)}</div><div>${p.disc?`<b>${money(p.disc)}</b> <s class="mut">${money(p.price)}</s>`:`<b>${money(p.price)}</b>`} ${so?'<span class="tag bad">Sold Out</span>':'<span class="tag ok">Available</span>'}</div><p class="mut">${esc(p.desc)}</p>
+<div class="row">${z.map(s=>{const out=so||s.stock<=0;return`<button class="sz ${out?'so':''} ${sel[p.id]==s.s?'sel':''}" ${out?'disabled':''} onclick="sel['${p.id}']='${esc(s.s)}';drawC()">${esc(s.s)}${out?'<br><small>Sold out</small>':''}</button>`}).join('')}</div>
+<button class="p" style="width:100%;margin-top:10px" ${so?'disabled':''} onclick="addC('${p.id}')">Add to Cart</button></div>`}).join('')||'<p>No products available.</p>'}</div>
+${n?`<div class="bar"><button class="p" onclick="openCart()">View selection (${n})</button></div>`:''}`}
+function cnt(e){const t=e.parentNode.querySelector('.tag');if(t)t.textContent=(Math.round(e.scrollLeft/e.clientWidth)+1)+'/'+e.children.length}
+function chk(){if(st(L)!='Active'){gone();return 0}return 1}
+function addC(id){if(!chk())return;const s=sel[id];if(!s)return alert('Please select a size first.');
+if(!who.name)return gate(()=>addC(id));
+const p=db.products.find(p=>p.id==id),z=p.sizes.find(z=>z.s==s),c=cart.find(c=>c.pid==id&&c.s==s);
+if(c){if(c.q>=z.stock)return alert('Only '+z.stock+' in stock for this size.');c.q++}else cart.push({pid:id,s,q:1,n:p.name});L.adds++;save();drawC()}
+function gate(cb){window._cb=cb;mod(`<h3>Before you continue</h3><label>Your name *</label><input id="gn" value="${esc(who.name)}"><label>WhatsApp number (optional)</label><input id="gw" inputmode="tel" value="${esc(who.wa)}"><div class="row" style="margin-top:12px"><button class="p" onclick="if(!$('#gn').value.trim())return alert('Please enter your name.');who.name=$('#gn').value.trim();who.wa=$('#gw').value.trim();closeM();_cb()">Continue</button><button onclick="closeM()">Cancel</button></div>`)}
+function mod(h){closeM();const d=document.createElement('div');d.className='mod';d.id='m';d.innerHTML='<div>'+h+'</div>';document.body.appendChild(d)}
+const closeM=()=>$('#m')?.remove();
+function openCart(){mod(`<h3>Your selection</h3>${cart.map((c,i)=>`<div class="row" style="justify-content:space-between;margin:8px 0"><span>${esc(c.n)}<br><span class="mut">Size ${esc(c.s)}</span></span><span class="row"><button onclick="qty(${i},-1)">−</button>${c.q}<button onclick="qty(${i},1)">+</button></span></div>`).join('')||'<p>Your selection is empty.</p>'}
+<label>Name</label><input id="gn" value="${esc(who.name)}"><label>WhatsApp number</label><input id="gw" value="${esc(who.wa)}"><p class="mut">Submitting sends your interest to the store. It is not a confirmed order; the store will contact you.</p><div class="row"><button class="p" ${cart.length?'':'disabled'} onclick="submitC()">Submit selection</button><button onclick="closeM()">Close</button></div>`)}
+function qty(i,d){const c=cart[i],z=db.products.find(p=>p.id==c.pid).sizes.find(z=>z.s==c.s);c.q=Math.min(z.stock,c.q+d);if(c.q<1)cart.splice(i,1);closeM();drawC();cart.length&&openCart()}
+function submitC(){if(!chk())return;const n=$('#gn').value.trim();if(!n)return alert('Please enter your name.');who.name=n;who.wa=$('#gw').value.trim();
+db.orders.unshift({id:'o'+Date.now(),t:L.t,name:who.name,wa:who.wa,items:cart.map(c=>({...c})),time:Date.now(),status:'Interest'});save();cart=[];closeM();
+mod(`<h3>Thank you, ${esc(who.name)}!</h3><p>Your selection was sent to Autograph. This is an interest request, not a confirmed order. We will contact you shortly.</p><button class="p" onclick="closeM();drawC()">Back to catalog</button>`)}
+</script></body></html>
